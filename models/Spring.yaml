@@ -1,0 +1,491 @@
+name: Spring
+instanceOf: Core:Model
+elements:
+  - name: boot
+    instanceOf: Core:Package
+    elements:
+      - name: Context
+        instanceOf: Core:Class
+        icon: thesvg:spring-boot
+        color: '#54aa0e'
+        extends:
+          - Core:RootElement
+        properties:
+          - name: application
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:app.Application
+          - name: basePackage
+            instanceOf: Core:PrimitiveProperty
+            mandatory: true
+            type: Core:String
+          - name: beans
+            instanceOf: Core:Relation
+            multiple: true
+            to: Spring:boot.Bean
+            composite: true
+            opposite: Spring:boot.Bean.context
+          - name: entities
+            instanceOf: Core:Relation
+            multiple: true
+            to: Spring:jpa.Entity
+            composite: true
+            opposite: Spring:jpa.Entity.context
+      - name: Bean
+        instanceOf: Core:Class
+        abstract: true
+        extends:
+          - Core:Element
+        properties:
+          - name: context
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Spring:boot.Context
+            opposite: Spring:boot.Context.beans
+  - name: web
+    instanceOf: Core:Package
+    elements:
+      - name: Controller
+        instanceOf: Core:Class
+        icon: mui:Api
+        extends:
+          - Spring:boot.Bean
+        properties:
+          - name: resource
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:http.Resource
+            filter: |
+              export default function run(resource: any, owner: any): boolean {
+                return !!resource && !!owner && !!owner.context && !!resource.api && resource.api.application === owner.context.application
+              }
+          - name: endpoints
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:http.Endpoint
+            filter: |
+              export default function run(endpoint: any, owner: any): boolean {
+                return !!endpoint && !!owner && !!owner.resource && endpoint.resource === owner.resource
+              }
+          - name: service
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Spring:service.Service
+            filter: |
+              export default function run(service: any, owner: any): boolean {
+                return !!service && !!owner && service.context === owner.context
+              }
+  - name: service
+    instanceOf: Core:Package
+    elements:
+      - name: Service
+        instanceOf: Core:Class
+        icon: mui:Settings
+        extends:
+          - Spring:boot.Bean
+        properties:
+          - name: repositories
+            instanceOf: Core:Relation
+            multiple: true
+            to: Spring:jpa.Repository
+            filter: >
+              export default function run(repository: any, owner: any): boolean
+              {
+                return !!repository && !!owner && repository.context === owner.context
+              }
+          - name: transactional
+            instanceOf: Core:PrimitiveProperty
+            type: Core:Boolean
+  - name: jpa
+    instanceOf: Core:Package
+    elements:
+      - name: IdGeneration
+        instanceOf: Core:Enum
+        values:
+          - UUID
+          - IDENTITY
+      - name: FetchType
+        instanceOf: Core:Enum
+        values:
+          - LAZY
+          - EAGER
+      - name: CascadeType
+        instanceOf: Core:Enum
+        values:
+          - ALL
+          - PERSIST
+          - MERGE
+          - REMOVE
+          - REFRESH
+          - DETACH
+      - name: Attribute
+        instanceOf: Core:Class
+        abstract: true
+        extends:
+          - Core:Element
+        properties:
+          - name: entity
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Spring:jpa.Entity
+            opposite: Spring:jpa.Entity.attributes
+      - name: Field
+        instanceOf: Core:Class
+        icon: mui:ShortText
+        extends:
+          - Spring:jpa.Attribute
+        properties:
+          - name: column
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:sql.Column
+            filter: |
+              export default function run(column: any, owner: any): boolean {
+                return !!column && !!owner && !!owner.entity && !!column._workspace && column.instanceOf._inherits(column._workspace._get('Application:sql.Column')) && column.record === owner.entity.table
+              }
+      - name: ManyToOne
+        instanceOf: Core:Class
+        icon: mui:Link
+        extends:
+          - Spring:jpa.Attribute
+        properties:
+          - name: foreignKey
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:sql.ForeignKey
+            filter: |
+              export default function run(fk: any, owner: any): boolean {
+                return !!fk && !!owner && !!owner.entity && !!fk._workspace && fk.instanceOf._inherits(fk._workspace._get('Application:sql.ForeignKey')) && fk.record === owner.entity.table
+              }
+          - name: target
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Spring:jpa.Entity
+            filter: |
+              export default function run(target: any, owner: any): boolean {
+                return !!target && !!owner && !!owner.entity && target.context === owner.entity.context && (!owner.foreignKey || target.table === owner.foreignKey.target)
+              }
+          - name: fetch
+            instanceOf: Core:PrimitiveProperty
+            type: Spring:jpa.FetchType
+          - name: cascade
+            instanceOf: Core:PrimitiveProperty
+            multiple: true
+            type: Spring:jpa.CascadeType
+      - name: OneToMany
+        instanceOf: Core:Class
+        icon: mui:AccountTree
+        extends:
+          - Spring:jpa.Attribute
+        properties:
+          - name: mappedBy
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Spring:jpa.ManyToOne
+            filter: |
+              export default function run(m: any, owner: any): boolean {
+                return !!m && !!owner && !!owner.entity && !!m.entity && m.entity.context === owner.entity.context && m.target === owner.entity
+              }
+          - name: fetch
+            instanceOf: Core:PrimitiveProperty
+            type: Spring:jpa.FetchType
+          - name: cascade
+            instanceOf: Core:PrimitiveProperty
+            multiple: true
+            type: Spring:jpa.CascadeType
+          - name: orphanRemoval
+            instanceOf: Core:PrimitiveProperty
+            type: Core:Boolean
+      - name: Entity
+        instanceOf: Core:Class
+        icon: mui:TableChart
+        extends:
+          - Core:Element
+        properties:
+          - name: context
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Spring:boot.Context
+            opposite: Spring:boot.Context.entities
+          - name: table
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:sql.Table
+            filter: |
+              export default function run(table: any, owner: any): boolean {
+                return !!table && !!owner && !!owner.context && !!table._workspace && table.instanceOf._inherits(table._workspace._get('Application:sql.Table')) && !!table.store && table.store.application === owner.context.application
+              }
+          - name: idGeneration
+            instanceOf: Core:PrimitiveProperty
+            type: Spring:jpa.IdGeneration
+          - name: attributes
+            instanceOf: Core:Relation
+            multiple: true
+            to: Spring:jpa.Attribute
+            composite: true
+            opposite: Spring:jpa.Attribute.entity
+          - name: id
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Spring:jpa.Field
+            filter: |
+              export default function run(field: any, owner: any): boolean {
+                return !!field && !!owner && !!field._workspace && field.instanceOf._inherits(field._workspace._get('Spring:jpa.Field')) && field.entity === owner && !!owner.table && field.column === owner.table.key
+              }
+      - name: Repository
+        instanceOf: Core:Class
+        icon: mui:Storage
+        extends:
+          - Spring:boot.Bean
+        properties:
+          - name: entity
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Spring:jpa.Entity
+            filter: |
+              export default function run(entity: any, owner: any): boolean {
+                return !!entity && !!owner && entity.context === owner.context
+              }
+  - name: SpringClassDiagram
+    instanceOf: Diagram:core.Diagram
+    type: Uml:ClassDiagram
+    subject: Spring
+    nodes:
+      - name: AppApplication
+        instanceOf: Diagram:core.Node
+        element: Application:app.Application
+        x: -390
+        'y': 40
+        width: 200
+        height: 104
+      - name: HttpResource
+        instanceOf: Diagram:core.Node
+        element: Application:http.Resource
+        x: -100
+        'y': 40
+        width: 200
+        height: 104
+      - name: HttpEndpoint
+        instanceOf: Diagram:core.Node
+        element: Application:http.Endpoint
+        x: 190
+        'y': 40
+        width: 200
+        height: 152
+      - name: SqlTable
+        instanceOf: Diagram:core.Node
+        element: Application:sql.Table
+        x: 480
+        'y': 40
+        width: 200
+        height: 56
+      - name: SqlColumn
+        instanceOf: Diagram:core.Node
+        element: Application:sql.Column
+        x: 770
+        'y': 40
+        width: 200
+        height: 72
+      - name: SqlForeignKey
+        instanceOf: Diagram:core.Node
+        element: Application:sql.ForeignKey
+        x: 1060
+        'y': 40
+        width: 200
+        height: 56
+      - name: BootContext
+        instanceOf: Diagram:core.Node
+        element: Spring:boot.Context
+        x: -390
+        'y': 300
+        width: 200
+        height: 104
+      - name: BootBean
+        instanceOf: Diagram:core.Node
+        element: Spring:boot.Bean
+        x: -100
+        'y': 300
+        width: 200
+        height: 56
+      - name: JpaEntity
+        instanceOf: Diagram:core.Node
+        element: Spring:jpa.Entity
+        x: 480
+        'y': 300
+        width: 200
+        height: 120
+      - name: JpaAttribute
+        instanceOf: Diagram:core.Node
+        element: Spring:jpa.Attribute
+        x: 1060
+        'y': 300
+        width: 200
+        height: 56
+      - name: WebController
+        instanceOf: Diagram:core.Node
+        element: Spring:web.Controller
+        x: -390
+        'y': 520
+        width: 200
+        height: 88
+      - name: ServiceService
+        instanceOf: Diagram:core.Node
+        element: Spring:service.Service
+        x: -100
+        'y': 520
+        width: 200
+        height: 72
+      - name: JpaRepository
+        instanceOf: Diagram:core.Node
+        element: Spring:jpa.Repository
+        x: 190
+        'y': 520
+        width: 200
+        height: 56
+      - name: JpaField
+        instanceOf: Diagram:core.Node
+        element: Spring:jpa.Field
+        x: 770
+        'y': 520
+        width: 200
+        height: 56
+      - name: JpaManyToOne
+        instanceOf: Diagram:core.Node
+        element: Spring:jpa.ManyToOne
+        x: 1060
+        'y': 520
+        width: 200
+        height: 104
+      - name: JpaOneToMany
+        instanceOf: Diagram:core.Node
+        element: Spring:jpa.OneToMany
+        x: 1350
+        'y': 520
+        width: 200
+        height: 104
+    links:
+      - name: ContextApplicationLink
+        instanceOf: Diagram:core.Link
+        mapping: Uml:ClassDiagram.relation
+        element: Spring:boot.Context.application
+        labelX: 0.7
+        labelY: -10
+      - name: ContextBeansLink
+        instanceOf: Diagram:core.Link
+        mapping: Uml:ClassDiagram.relation
+        element: Spring:boot.Context.beans
+        labelX: 0.7
+        labelY: -10
+      - name: ContextEntitiesLink
+        instanceOf: Diagram:core.Link
+        mapping: Uml:ClassDiagram.relation
+        element: Spring:boot.Context.entities
+        labelX: 0.7
+        labelY: -10
+      - name: ControllerResourceLink
+        instanceOf: Diagram:core.Link
+        mapping: Uml:ClassDiagram.relation
+        element: Spring:web.Controller.resource
+        labelX: 0.7
+        labelY: -10
+      - name: ControllerEndpointsLink
+        instanceOf: Diagram:core.Link
+        mapping: Uml:ClassDiagram.relation
+        element: Spring:web.Controller.endpoints
+        labelX: 0.7
+        labelY: -10
+      - name: ControllerServiceLink
+        instanceOf: Diagram:core.Link
+        mapping: Uml:ClassDiagram.relation
+        element: Spring:web.Controller.service
+        labelX: 0.7
+        labelY: -10
+      - name: ServiceRepositoriesLink
+        instanceOf: Diagram:core.Link
+        mapping: Uml:ClassDiagram.relation
+        element: Spring:service.Service.repositories
+        labelX: 0.7
+        labelY: -10
+      - name: RepositoryEntityLink
+        instanceOf: Diagram:core.Link
+        mapping: Uml:ClassDiagram.relation
+        element: Spring:jpa.Repository.entity
+        labelX: 0.7
+        labelY: -10
+      - name: EntityTableLink
+        instanceOf: Diagram:core.Link
+        mapping: Uml:ClassDiagram.relation
+        element: Spring:jpa.Entity.table
+        labelX: 0.7
+        labelY: -10
+      - name: EntityAttributesLink
+        instanceOf: Diagram:core.Link
+        mapping: Uml:ClassDiagram.relation
+        element: Spring:jpa.Entity.attributes
+        labelX: 0.7
+        labelY: -10
+      - name: EntityIdLink
+        instanceOf: Diagram:core.Link
+        mapping: Uml:ClassDiagram.relation
+        element: Spring:jpa.Entity.id
+        labelX: 0.7
+        labelY: -10
+      - name: FieldColumnLink
+        instanceOf: Diagram:core.Link
+        mapping: Uml:ClassDiagram.relation
+        element: Spring:jpa.Field.column
+        labelX: 0.7
+        labelY: -10
+      - name: ManyToOneForeignKeyLink
+        instanceOf: Diagram:core.Link
+        mapping: Uml:ClassDiagram.relation
+        element: Spring:jpa.ManyToOne.foreignKey
+        labelX: 0.7
+        labelY: -10
+      - name: ManyToOneTargetLink
+        instanceOf: Diagram:core.Link
+        mapping: Uml:ClassDiagram.relation
+        element: Spring:jpa.ManyToOne.target
+        labelX: 0.7
+        labelY: -10
+      - name: OneToManyMappedByLink
+        instanceOf: Diagram:core.Link
+        mapping: Uml:ClassDiagram.relation
+        element: Spring:jpa.OneToMany.mappedBy
+        labelX: 0.7
+        labelY: -10
+      - name: endpointsLink
+        instanceOf: Diagram:core.Link
+        mapping: Uml:ClassDiagram.relation
+        element: Application:http.Resource.endpoints
+        hidden: true
+      - name: resourceLink
+        instanceOf: Diagram:core.Link
+        mapping: Uml:ClassDiagram.relation
+        element: Application:http.Endpoint.resource
+        hidden: true
+      - name: columnLink
+        instanceOf: Diagram:core.Link
+        mapping: Uml:ClassDiagram.relation
+        element: Application:sql.ForeignKey.column
+        hidden: true
+      - name: contextLink
+        instanceOf: Diagram:core.Link
+        mapping: Uml:ClassDiagram.relation
+        element: Spring:boot.Bean.context
+        hidden: true
+      - name: contextLink2
+        instanceOf: Diagram:core.Link
+        mapping: Uml:ClassDiagram.relation
+        element: Spring:jpa.Entity.context
+        hidden: true
+      - name: entityLink
+        instanceOf: Diagram:core.Link
+        mapping: Uml:ClassDiagram.relation
+        element: Spring:jpa.Attribute.entity
+        hidden: true
+version: latest
+depends:
+  - Diagram
+  - Uml
+  - metaltura/application/Application@v1.0.0
