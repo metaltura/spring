@@ -488,4 +488,4 @@ version: latest
 depends:
   - Diagram
   - Uml
-  - metaltura/application/Application@v1.0.0
+  - metaltura/application/Application@v2.0.0
